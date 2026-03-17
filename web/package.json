@@ -15,8 +15,10 @@
   "dependencies": {
     "@prisma/client": "^6.19.2",
     "next": "16.1.7",
+    "react-markdown": "^10.1.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

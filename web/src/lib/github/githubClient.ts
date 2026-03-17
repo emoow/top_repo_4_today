@@ -1,4 +1,11 @@
-import type { GitHubSearchReposResponse } from "@/lib/github/types";
+import type {
+  GitHubContentFile,
+  GitHubReadmeResponse,
+  GitHubRelease,
+  GitHubRepo,
+  GitHubRepoTopicsResponse,
+  GitHubSearchReposResponse,
+} from "@/lib/github/types";
 
 type GitHubClientOptions = {
   token?: string;
@@ -111,6 +118,47 @@ export class GitHubClient {
     throw new Error("GitHub API error: exceeded retry attempts");
   }
 
+  private async fetchText(url: string, init?: RequestInit): Promise<string> {
+    const maxAttempts = 6;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const res = await fetch(url, {
+        ...init,
+        headers: { ...this.buildHeaders(), ...(init?.headers ?? {}) },
+      });
+
+      const meta = this.readMeta(res);
+
+      if (res.ok) return await res.text();
+
+      if (res.status === 403 && meta.remaining === 0 && meta.resetEpochSeconds) {
+        const waitMs =
+          Math.max(meta.resetEpochSeconds * 1000 - Date.now(), 0) + 500;
+        await sleep(Math.min(waitMs, 60_000));
+        continue;
+      }
+
+      if (
+        (res.status === 429 ||
+          res.status === 502 ||
+          res.status === 503 ||
+          res.status === 504) &&
+        attempt < maxAttempts - 1
+      ) {
+        const waitMs = meta.retryAfterSeconds
+          ? Math.min(meta.retryAfterSeconds * 1000, 60_000)
+          : getBackoffMs(attempt);
+        await sleep(waitMs);
+        continue;
+      }
+
+      const suffix = meta.requestId ? ` (request ${meta.requestId})` : "";
+      throw new Error(`GitHub API error ${res.status}${suffix}: text fetch failed`);
+    }
+
+    throw new Error("GitHub API error: exceeded retry attempts");
+  }
+
   async searchRepositories(params: {
     q: string;
     sort: "stars" | "forks" | "updated";
@@ -128,6 +176,70 @@ export class GitHubClient {
     url.searchParams.set("per_page", String(perPage));
     url.searchParams.set("page", String(page));
     return await this.fetchJson<GitHubSearchReposResponse>(url.toString());
+  }
+
+  async getRepo(params: { owner: string; repo: string }): Promise<GitHubRepo> {
+    const url = `https://api.github.com/repos/${params.owner}/${params.repo}`;
+    return await this.fetchJson<GitHubRepo>(url);
+  }
+
+  async getRepoTopics(params: {
+    owner: string;
+    repo: string;
+  }): Promise<GitHubRepoTopicsResponse> {
+    const url = `https://api.github.com/repos/${params.owner}/${params.repo}/topics`;
+    return await this.fetchJson<GitHubRepoTopicsResponse>(url);
+  }
+
+  async getRepoLanguages(params: {
+    owner: string;
+    repo: string;
+  }): Promise<Record<string, number>> {
+    const url = `https://api.github.com/repos/${params.owner}/${params.repo}/languages`;
+    return await this.fetchJson<Record<string, number>>(url);
+  }
+
+  async getLatestRelease(params: {
+    owner: string;
+    repo: string;
+  }): Promise<GitHubRelease> {
+    const url = `https://api.github.com/repos/${params.owner}/${params.repo}/releases/latest`;
+    return await this.fetchJson<GitHubRelease>(url);
+  }
+
+  async listReleases(params: {
+    owner: string;
+    repo: string;
+    perPage?: number;
+    page?: number;
+  }): Promise<GitHubRelease[]> {
+    const perPage = params.perPage ?? 30;
+    const page = params.page ?? 1;
+    const url = new URL(`https://api.github.com/repos/${params.owner}/${params.repo}/releases`);
+    url.searchParams.set("per_page", String(perPage));
+    url.searchParams.set("page", String(page));
+    return await this.fetchJson<GitHubRelease[]>(url.toString());
+  }
+
+  async getReadme(params: {
+    owner: string;
+    repo: string;
+  }): Promise<GitHubReadmeResponse> {
+    const url = `https://api.github.com/repos/${params.owner}/${params.repo}/readme`;
+    return await this.fetchJson<GitHubReadmeResponse>(url);
+  }
+
+  async getContents(params: {
+    owner: string;
+    repo: string;
+    path: string;
+  }): Promise<GitHubContentFile | unknown> {
+    const url = `https://api.github.com/repos/${params.owner}/${params.repo}/contents/${params.path}`;
+    return await this.fetchJson<GitHubContentFile | unknown>(url);
+  }
+
+  async downloadText(url: string): Promise<string> {
+    return await this.fetchText(url, {});
   }
 }
 
