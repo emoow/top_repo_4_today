@@ -13,13 +13,35 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const baseUrl =
+  process.env.NEXT_PUBLIC_APP_URL || "https://toprepostoday.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: {
     default: "Top Repos Today",
     template: "%s · Top Repos Today",
   },
   description:
     "A clean daily blog of top GitHub repositories with structured, rule-based summaries.",
+  openGraph: {
+    title: "Top Repos Today",
+    description:
+      "Daily picks of top GitHub repositories with structured, rule-based summaries.",
+    url: "/",
+    siteName: "Top Repos Today",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Top Repos Today",
+    description:
+      "Daily top GitHub repositories with no-repeat picks and structured summaries.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
