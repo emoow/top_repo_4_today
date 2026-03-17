@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PickSource {
+  star
+  fork
+}
+
+model Repo {
+  id        String   @id @default(cuid())
+  githubId  Int      @unique
+  owner     String
+  name      String
+  fullName  String   @unique
+  htmlUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  snapshots RepoSnapshot[]
+  posts     Post[]
+  picks     Pick[]
+
+  @@index([owner, name])
+}
+
+model RepoSnapshot {
+  id            String   @id @default(cuid())
+  repoId        String
+  capturedAt    DateTime @default(now())
+
+  stars         Int
+  forks         Int
+  openIssues    Int?
+  watchers      Int?
+  defaultBranch String?
+  pushedAt      DateTime?
+
+  topics        String[] @default([])
+  languageMain  String?
+  languagesJson Json?
+
+  licenseSpdx   String?
+  homepage      String?
+  description   String?
+
+  latestReleaseTag String?
+  latestReleaseAt  DateTime?
+
+  readmeSha     String?
+  readmeExcerpt String?
+
+  derivedSignals Json?
+
+  repo Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  posts Post[]
+
+  @@index([repoId, capturedAt(sort: Desc)])
+}
+
+model Post {
+  id            String   @id @default(cuid())
+  repoId        String
+  snapshotId    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  title         String
+  slug          String   @unique
+  summaryJson   Json
+  bodyMarkdown  String
+
+  repo     Repo         @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  snapshot RepoSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  picks    Pick[]
+  triggers ResummaryTrigger[]
+
+  @@index([repoId, createdAt(sort: Desc)])
+}
+
+model Pick {
+  id        String     @id @default(cuid())
+  date      DateTime
+  rank      Int
+  source    PickSource
+  createdAt DateTime   @default(now())
+
+  repoId String
+  postId String?
+
+  repo Repo  @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  post Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@unique([date, source, rank])
+  @@index([date])
+  @@index([repoId])
+}
+
+model ResummaryTrigger {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  postId String
+  type   String
+  detail String?
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([type])
+}
+

@@ -1,4 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the Next.js web app for `top_repo_4_today`.
+
+## Environment variables
+
+Create a `.env.local` in `web/` (or use your shell env) with:
+
+- `GITHUB_TOKEN`: optional but recommended (higher rate limits)
+- `CRON_SECRET`: required for calling protected crawl endpoints
+
+Example:
+
+```bash
+GITHUB_TOKEN=ghp_...
+CRON_SECRET=change-me
+```
+
+## Crawling (dev)
+
+Start the dev server:
+
+```bash
+npm run dev
+```
+
+Then call the admin crawl endpoint:
+
+```bash
+curl "http://localhost:3000/api/admin/crawl?secret=$CRON_SECRET"
+```
 
 ## Getting Started
 
